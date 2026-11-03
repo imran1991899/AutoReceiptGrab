@@ -82,7 +82,7 @@ else:
             st.query_params.clear()
             st.rerun()
         except Exception as e:
-            st.error(f"Authentication failed: {e}")
+            st.error(f"Authentication failed during token exchange: {e}")
 
     # Authentication Check
     if "credentials" not in st.session_state:
