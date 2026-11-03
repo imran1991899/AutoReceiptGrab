@@ -1,15 +1,16 @@
 name: Process Grab Receipts
 
 on:
-  workflow_dispatch: # Allows you to trigger it manually anytime from GitHub Actions tab
   schedule:
-    - cron: '0 0 1 * *' # Runs automatically on the 1st of every month (optional)
+    - cron: '0 0 * * 0' # Runs weekly, adjust as needed
+  workflow_dispatch:     # Allows manual triggering
 
 jobs:
-  run-script:
+  run-receipt-processor:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Set up Python
@@ -17,18 +18,26 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install system dependencies (Poppler for PDF handling)
-        run: sudo apt-get update && sudo apt-get install -y poppler-utils
-
-      - name: Install Python dependencies
+      - name: Install Dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install google-auth-oauthlib google-api-python-client Pillow pdf2image beautifulsoup4 requests
+          pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib pillow beautifulsoup4 pdf2image requests
 
-      - name: Run receipt extraction and grid generator
-        env:
-          GMAIL_CLIENT_ID: ${{ secrets.GMAIL_CLIENT_ID }}
-          GMAIL_CLIENT_SECRET: ${{ secrets.GMAIL_CLIENT_SECRET }}
-          GMAIL_REFRESH_TOKEN: ${{ secrets.GMAIL_REFRESH_TOKEN }}
-          GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+      - name: Install System Dependencies (Poppler for PDF conversion)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y poppler-utils
+
+      - name: Generate config.json from GitHub Secrets
+        run: |
+          cat << EOF > config.json
+          {
+            "GMAIL_CLIENT_ID": "${{ secrets.GMAIL_CLIENT_ID }}",
+            "GMAIL_CLIENT_SECRET": "${{ secrets.GMAIL_CLIENT_SECRET }}",
+            "GMAIL_REFRESH_TOKEN": "${{ secrets.GMAIL_REFRESH_TOKEN }}",
+            "GOOGLE_DRIVE_FOLDER_ID": "${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}"
+          }
+          EOF
+
+      - name: Run Receipt Processor Script
         run: python process_receipts.py
