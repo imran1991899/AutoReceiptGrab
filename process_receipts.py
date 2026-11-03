@@ -1,6 +1,7 @@
 import os
 import re
 import base64
+import json
 from datetime import datetime
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
@@ -10,10 +11,19 @@ from bs4 import BeautifulSoup
 from pdf2image import convert_from_path
 import requests
 
-CLIENT_ID = os.environ.get("GMAIL_CLIENT_ID")
-CLIENT_SECRET = os.environ.get("GMAIL_CLIENT_SECRET")
-REFRESH_TOKEN = os.environ.get("GMAIL_REFRESH_TOKEN")
-DRIVE_FOLDER_ID = os.environ.get("GOOGLE_DRIVE_FOLDER_ID")
+# Load configuration from config.json if it exists, otherwise fallback to environment variables
+if os.path.exists('config.json'):
+    with open('config.json', 'r') as f:
+        config = json.load(f)
+        CLIENT_ID = config.get("GMAIL_CLIENT_ID")
+        CLIENT_SECRET = config.get("GMAIL_CLIENT_SECRET")
+        REFRESH_TOKEN = config.get("GMAIL_REFRESH_TOKEN")
+        DRIVE_FOLDER_ID = config.get("GOOGLE_DRIVE_FOLDER_ID")
+else:
+    CLIENT_ID = os.environ.get("GMAIL_CLIENT_ID")
+    CLIENT_SECRET = os.environ.get("GMAIL_CLIENT_SECRET")
+    REFRESH_TOKEN = os.environ.get("GMAIL_REFRESH_TOKEN")
+    DRIVE_FOLDER_ID = os.environ.get("GOOGLE_DRIVE_FOLDER_ID")
 
 SCOPES = [
     'https://www.googleapis.com/auth/gmail.readonly',
@@ -109,7 +119,7 @@ def main():
 
         process_parts(parts)
 
-        # 2. Fallback: If no attachment, check for images embedded directly in the HTML body (like the graphic above)
+        # 2. Fallback: If no attachment, check for images embedded directly in the HTML body
         if not attachments_found:
             html_body = extract_email_body(message['payload'])
             soup = BeautifulSoup(html_body, 'html.parser')
@@ -146,33 +156,4 @@ def main():
     page_num = 1
     for i in range(0, len(image_paths), 4):
         batch = image_paths[i:i+4]
-        canvas = Image.new('RGB', (page_width, page_height), (255, 255, 255))
-        
-        for idx, img_path in enumerate(batch):
-            try:
-                img = Image.open(img_path)
-                img.thumbnail((slot_w, slot_h), Image.Resampling.LANCZOS)
-                row, col = idx // 2, idx % 2
-                x = margin + col * (slot_w + margin)
-                y = margin + row * (slot_h + margin)
-                canvas.paste(img, (x, y))
-            except Exception as e:
-                print(f"Error pasting image: {e}")
-                
-        output_pdf_path = os.path.join(grid_dir, f"grab_receipts_page_{page_num:03d}.pdf")
-        canvas.save(output_pdf_path, "PDF", resolution=150.0)
-        
-        # Upload directly to Google Drive
-        file_metadata = {
-            'name': os.path.basename(output_pdf_path),
-            'parents': [DRIVE_FOLDER_ID] if DRIVE_FOLDER_ID else []
-        }
-        media = MediaFileUpload(output_pdf_path, mimetype='application/pdf')
-        drive_file = drive_service.files().create(
-            body=file_metadata, media_body=media, fields='id').execute()
-        
-        print(f"Uploaded to Google Drive: {output_pdf_path} (ID: {drive_file.get('id')})")
-        page_num += 1
-
-if __name__ == '__main__':
-    main()
+        canvas = Image.new('RGB', (page_width, page_height), (255,
