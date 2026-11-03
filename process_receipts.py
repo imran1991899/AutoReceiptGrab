@@ -162,7 +162,7 @@ else:
                             parts = message['payload'].get('parts', [])
                             
                             def process_parts(parts_list):
-                                nonlocal attachments_found
+                                non_local_found = False
                                 for part in parts_list:
                                     if part.get('filename'):
                                         filename = part['filename']
@@ -188,11 +188,14 @@ else:
                                                         continue
 
                                                 receipt_records.append((email_date, img_path))
-                                                attachments_found = True
+                                                non_local_found = True
                                     if 'parts' in part:
-                                        process_parts(part['parts'])
+                                        if process_parts(part['parts']):
+                                            non_local_found = True
+                                return non_local_found
 
-                            process_parts(parts)
+                            if process_parts(parts):
+                                attachments_found = True
 
                             # Fallback to inline graphic images if no attachments found
                             if not attachments_found:
